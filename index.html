@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kuzto Client Portal</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="portal.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Login / Sign-Up View -->
+        <div id="login-view" class="view active">
+            <header>
+                <h1 class="logo">Kuzto</h1>
+                <p class="subtitle">Client Portal</p>
+            </header>
+            <h2>Sign In / Create Account</h2>
+            <p>Access your workspace architecture details or create a new account.</p>
+            
+            <div class="login-methods">
+                <!-- Google OAuth -->
+                <div class="google-login-container">
+                    <div id="g_id_onload"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-context="use"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleLogin"
+                         data-auto_prompt="false">
+                    </div>
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="outline"
+                         data-text="continue_with"
+                         data-size="large"
+                         data-logo_alignment="left">
+                    </div>
+                </div>
+
+                <div class="divider">
+                    <span>or</span>
+                </div>
+
+                <!-- Email/Password Form -->
+                <form id="email-login-form">
+                    <div class="input-group">
+                        <label for="identifier">Email or Username</label>
+                        <input type="text" id="identifier" required placeholder="name@example.com or Username" value="admin">
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required placeholder="••••••••" value="password">
+                    </div>
+                    <button type="submit" class="btn primary">Sign In</button>
+                    <p id="login-error" class="error-msg"></p>
+                </form>
+            </div>
+        </div>
+
+        <!-- Profile Setup View (Triggered after Google Auth if new user) -->
+        <div id="profile-setup-view" class="view">
+            <header>
+                <h1 class="logo">Kuzto</h1>
+                <p class="subtitle">Profile Setup</p>
+            </header>
+            <h2>Complete Your Profile</h2>
+            <p>Choose a unique username and set a password.</p>
+            
+            <form id="profile-setup-form">
+                <div class="input-group">
+                    <label for="setup-email">Email (Verified via Google)</label>
+                    <input type="email" id="setup-email" readonly disabled>
+                </div>
+                
+                <div class="input-group">
+                    <label for="setup-username">Choose Username</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="setup-username" required placeholder="Unique Username" style="flex: 1;">
+                        <button type="button" id="check-username-btn" class="btn secondary small">Check</button>
+                    </div>
+                    <p id="username-status" class="status-msg"></p>
+                </div>
+
+                <div class="input-group">
+                    <label for="setup-password">Set Password</label>
+                    <input type="password" id="setup-password" required placeholder="••••••••" disabled>
+                </div>
+
+                <div class="input-group">
+                    <label for="setup-confirm">Confirm Password</label>
+                    <input type="password" id="setup-confirm" required placeholder="••••••••" disabled>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" id="setup-submit-btn" class="btn primary" disabled>Create Account</button>
+                    <button type="button" id="setup-cancel-btn" class="btn secondary">Cancel</button>
+                </div>
+                <p id="setup-error" class="error-msg"></p>
+            </form>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="view">
+            <div class="dashboard-header">
+                <div>
+                    <h2>Welcome, <span id="client-name">Client</span></h2>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span class="header-branding-text">Kuzto Client Portal</span>
+                    <button id="profile-fab" class="header-profile-btn" title="View Profile">👤</button>
+                </div>
+            </div>
+
+            <!-- Search & Filter Bar -->
+            <div class="search-filter-bar" id="dashboard-controls" style="display: none;">
+                <input type="text" id="search-input" placeholder="Search by Item Name or SN..." class="search-input">
+                <select id="sort-select" class="sort-select">
+                    <option value="warranty-low">Warranty: Low to High</option>
+                    <option value="warranty-high">Warranty: High to Low</option>
+                    <option value="date-new">Purchased: Newest First</option>
+                    <option value="date-old">Purchased: Oldest First</option>
+                </select>
+            </div>
+
+            <!-- Main Dashboard Content -->
+            <div id="dashboard-content" class="dashboard-grid">
+                <!-- Blank state for now, will be populated based on future instructions -->
+                <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem;">
+                    <h3>Your Workspace is Empty</h3>
+                    <p style="color: var(--text-secondary);">Items and specifications will appear here once populated by the Kuzto team.</p>
+                </div>
+            </div>
+
+            <!-- Profile Management Content (Hidden by default) -->
+            <div id="profile-content" class="card" style="display: none; max-width: 600px; margin: 0 auto;">
+                <h3>Your Profile</h3>
+                <div class="profile-details">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="profile-username" readonly disabled>
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="profile-email" readonly disabled>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="profile-password" value="********" readonly disabled style="flex: 1;">
+                            <button type="button" id="view-password-btn" class="btn secondary small">View</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <button id="back-to-dash-btn" class="btn secondary">Back to Dashboard</button>
+                        <button id="logout-btn" class="btn secondary" style="color: var(--error-color); border-color: #f5c6cb; background: #fdf0ef;">Sign Out</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FABs -->
+            <div class="fab-container">
+                <button id="add-item-fab" class="fab" title="Add New Item">+</button>
+            </div>
+            
+            <footer class="dashboard-footer">
+                <p>Need help? Reach out to us at <a href="mailto:kuztoworkspaces@gmail.com">kuztoworkspaces@gmail.com</a></p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <span id="close-modal-btn" class="close-btn">&times;</span>
+            <h2>Add New Item</h2>
+            
+            <div class="modal-scroll-area">
+                <form id="add-item-form">
+                    <div class="form-grid">
+                        
+                        <!-- COLUMN 1: REQUIRED -->
+                        <div class="form-col">
+                            <h3 class="col-title">Required Details</h3>
+                            
+                            <!-- 1. Item Name -->
+                            <div class="input-group">
+                                <label for="item-name">Item Name</label>
+                                <input type="text" id="item-name" required placeholder="e.g., RTX 4090 GPU">
+                            </div>
+
+                            <!-- 3. Purchase / Invoice Date -->
+                            <div class="input-group">
+                                <label for="item-date">Purchase / Invoice Date</label>
+                                <input type="date" id="item-date" required>
+                            </div>
+
+                            <!-- 4. Warranty Period -->
+                            <div class="input-group">
+                                <label>Manufacturer Warranty Period</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" id="item-warranty-val" required min="0.1" step="any" placeholder="e.g. 1" style="flex: 1;">
+                                    <select id="item-warranty-unit" style="width: 120px;">
+                                        <option value="days">Days</option>
+                                        <option value="months">Months</option>
+                                        <option value="years" selected>Years</option>
+                                    </select>
+                                </div>
+                                <p id="warranty-error" class="error-msg"></p>
+                            </div>
+
+                            <!-- 5. Extended Warranty Toggle -->
+                            <div class="toggle-row">
+                                <label for="item-ext-warranty">Extended Warranty?</label>
+                                <label class="toggle">
+                                    <input type="checkbox" id="item-ext-warranty">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <!-- 5.1. Extended Warranty Period (Conditional) -->
+                            <div id="ext-warranty-field" class="conditional-field">
+                                <div class="input-group">
+                                    <label>Extended Warranty Period</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="number" id="item-ext-val" min="0.1" step="any" placeholder="e.g. 1" style="flex: 1;">
+                                        <select id="item-ext-unit" style="width: 120px;">
+                                            <option value="days">Days</option>
+                                            <option value="months">Months</option>
+                                            <option value="years" selected>Years</option>
+                                        </select>
+                                    </div>
+                                    <p id="ext-warranty-error" class="error-msg"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- COLUMN 2: OPTIONAL -->
+                        <div class="form-col">
+                            <h3 class="col-title">Optional Extras</h3>
+                            
+                            <!-- New: Serial / Model Number -->
+                            <div class="input-group">
+                                <label for="item-serial">Serial / Model Number</label>
+                                <input type="text" id="item-serial" placeholder="e.g., SN-123456789">
+                            </div>
+
+                            <!-- 2. Item Spec (limited) -->
+                            <div class="input-group">
+                                <label for="item-specs">Specifications <span id="spec-char-count" style="font-weight:400; color:var(--text-secondary);">(0/80)</span></label>
+                                <input type="text" id="item-specs" placeholder="e.g., 24GB GDDR6X, 2520 MHz Boost" maxlength="80">
+                            </div>
+
+                            <!-- 6. Invoice Upload (PDF / Image) -->
+                            <div class="input-group">
+                                <label>Invoice (PDF or Image)</label>
+                                <div class="file-upload-area" id="file-drop-area">
+                                    <input type="file" id="item-invoice" accept=".pdf,.jpg,.jpeg,.png">
+                                    <p>Click to upload or drag & drop</p>
+                                    <div class="file-name" id="file-name-display"></div>
+                                </div>
+                                <p id="file-upload-error" class="error-msg"></p>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <button type="submit" class="btn primary">Add Item</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- CryptoJS removed as per user request to store plain text password for viewing -->
+    <script src="portal.js"></script>
+</body>
+</html>
