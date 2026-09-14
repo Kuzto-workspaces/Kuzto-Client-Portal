@@ -307,6 +307,10 @@ profileSetupForm.addEventListener('submit', async (e) => {
         if (loginResult.success) {
             transitionToDashboard(loginResult.clientData);
             resetSetupForm();
+        } else {
+            setupError.textContent = "Account created, but auto-login failed: " + (loginResult.message || "Unknown error");
+            setupSubmitBtn.disabled = false;
+            setupSubmitBtn.textContent = "Create Account";
         }
     } else {
         setupError.textContent = result.message || "Failed to create account.";
@@ -745,15 +749,12 @@ fileInput2.addEventListener('change', () => {
         fileNameDisplay.textContent = "";
         return;
     }
-    // Size limit temporarily removed for testing
-    /*
-    if (file.size > 50 * 1024) {
-        fileUploadError.textContent = `File "${file.name}" exceeds 50 KB limit.`;
+    if (file.size > 100 * 1024) {
+        fileUploadError.textContent = `File "${file.name}" exceeds 100 KB limit.`;
         fileInput2.value = "";
         fileNameDisplay.textContent = "";
         return;
     }
-    */
     fileNameDisplay.textContent = file.name;
 });
 
@@ -770,13 +771,10 @@ fileDropArea.addEventListener('drop', (e) => {
     fileDropArea.style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file) {
-        // Size limit temporarily removed for testing
-        /*
-        if (file.size > 50 * 1024) {
-            fileUploadError.textContent = `File "${file.name}" exceeds 50 KB limit.`;
+        if (file.size > 100 * 1024) {
+            fileUploadError.textContent = `File "${file.name}" exceeds 100 KB limit.`;
             return;
         }
-        */
         // Assign dropped file to the input
         const dt = new DataTransfer();
         dt.items.add(file);
@@ -788,6 +786,10 @@ fileDropArea.addEventListener('drop', (e) => {
 
 // Open / Close modal
 addItemFab.addEventListener('click', () => {
+    if (currentHardware.length >= 10) {
+        alert("You have reached the limit of 10 items. Please delete an item to add a new one.");
+        return;
+    }
     addItemModal.classList.add('active');
 });
 
