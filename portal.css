@@ -773,8 +773,8 @@ header {
 .item-card-actions-top {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 2px; /* Very tight grouping for pill and claim link */
+    align-items: center; /* Perfectly centers File Claim under the pill's text */
+    gap: 4px; 
 }
 
 .item-card-actions-bottom {
@@ -786,7 +786,7 @@ header {
 
 @media (max-width: 768px) {
     .item-card {
-        flex-direction: column; /* Stacks nicely on mobile */
+        flex-direction: column; 
         padding: 1rem;
         gap: 1.25rem;
     }
@@ -794,16 +794,18 @@ header {
     .item-card-right {
         width: 100%;
         flex-direction: row;
-        align-items: flex-end;
-        justify-content: space-between;
+        flex-wrap: wrap;
+        align-items: center; /* Fixes bottom alignment issues between text and buttons */
+        justify-content: flex-start; /* Stops it from feeling pushed to the far edges */
+        gap: 1rem 2rem;
     }
 
     .item-card-actions-top {
-        align-items: flex-start; /* Move to left side for balance on mobile */
+        align-items: center; 
     }
 
     .item-card-actions-bottom {
-        align-items: flex-end;
+        align-items: center;
     }
 
     .warranty-counter {
@@ -1219,4 +1221,151 @@ header {
 }
 .file-claim-link:hover {
     color: var(--accent-hover);
+}
+
+/* Spinner Animation & Button States */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn.loading {
+    opacity: 0.85;
+    cursor: not-allowed;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.btn.success-state {
+    background-color: var(--success-color) !important;
+    color: #fff !important;
+    border-color: var(--success-color) !important;
+}
+
+/* --- Icon Buttons --- */
+.icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 44px;
+    height: 42px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.icon-btn.spinning svg {
+    animation: spin 1s linear infinite;
+}
+
+/* --- Skeleton Loading --- */
+.skeleton-card {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.skeleton-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.skeleton-row {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.skeleton-line {
+    height: 16px;
+    background: #eaedef;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.skeleton-line.title {
+    width: 200px;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+.skeleton-line.spec {
+    width: 150px;
+}
+
+.skeleton-line.pill {
+    width: 120px;
+    height: 28px;
+    border-radius: 6px;
+}
+
+.skeleton-line.btn {
+    width: 130px;
+    height: 38px;
+    border-radius: 8px;
+}
+
+.skeleton-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+    animation: shimmer 1.5s infinite;
+    transform: translateX(-100%);
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Optimistic UI Syncing State */
+.item-syncing {
+    opacity: 0.7;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.sync-badge {
+    font-size: 0.7rem;
+    background: rgba(156, 175, 136, 0.2);
+    color: var(--accent-color);
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
 }

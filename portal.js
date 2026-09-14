@@ -92,14 +92,18 @@ function escapeHTML(str) {
 
 // --- Utility Functions ---
 function showView(viewElement) {
-    [loginView, profileSetupView, dashboardView].forEach(v => v.classList.remove('active'));
-    viewElement.classList.add('active');
+    [loginView, profileSetupView, dashboardView].forEach(v => {
+        if (v) v.classList.remove('active');
+    });
+    if (viewElement) viewElement.classList.add('active');
     
     // Toggle wide mode for dashboard
-    if (viewElement === dashboardView) {
-        container.classList.add('wide');
-    } else {
-        container.classList.remove('wide');
+    if (container) {
+        if (viewElement === dashboardView) {
+            container.classList.add('wide');
+        } else {
+            container.classList.remove('wide');
+        }
     }
 }
 
@@ -181,7 +185,15 @@ if (tabSignin && tabSignup) {
 // 2. Email or Username / Password Login
 emailForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    loginError.textContent = "Logging in...";
+    loginError.textContent = ""; // clear previous errors
+    
+    const submitBtn = emailForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    
+    // Set loading state
+    submitBtn.innerHTML = '<span class="spinner"></span> Authenticating...';
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
     
     const identifier = document.getElementById('identifier').value;
     const password = document.getElementById('password').value;
@@ -193,8 +205,24 @@ emailForm.addEventListener('submit', async (e) => {
     });
     
     if (result.success) {
+        submitBtn.innerHTML = 'Success!';
+        submitBtn.classList.remove('loading');
+        submitBtn.classList.add('success-state');
+        
+        // Transition instantly for maximum speed
         transitionToDashboard(result.clientData);
+        
+        // Reset button state invisibly for when they log out later
+        setTimeout(() => {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('success-state');
+        }, 500);
     } else {
+        // Reset and show error
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
         loginError.textContent = result.message || "Authentication failed.";
     }
 });
@@ -307,33 +335,98 @@ let currentHardware = [];
 const searchInput = document.getElementById('search-input');
 const sortSelect = document.getElementById('sort-select');
 const dashboardControls = document.getElementById('dashboard-controls');
+const refreshBtn = document.getElementById('refresh-btn');
 
 function transitionToDashboard(clientData) {
-    currentUser = clientData;
+    currentUser = clientData || {};
     
-    // Pre-parse timestamps for high-performance sorting on large loads
-    currentHardware = (clientData.hardware || []).map(item => ({
-        ...item,
-        _parsedPurchase: new Date(item.purchaseDate).getTime(),
-        _parsedWarrantyEnd: new Date(item.warrantyEndDate).getTime()
-    }));
-
     showView(dashboardView);
-    clientNameEl.textContent = clientData.name;
+    if (clientNameEl) clientNameEl.textContent = currentUser.name || "Client";
     
     // Default to showing dashboard content, hiding profile
-    dashboardContent.style.display = 'grid';
-    profileContent.style.display = 'none';
+    if (dashboardContent) dashboardContent.style.display = 'grid';
+    if (profileContent) profileContent.style.display = 'none';
 
     // Populate profile fields
-    profileUsername.value = clientData.username || "";
-    profileName.value = clientData.name || "Client";
-    profileEmail.value = clientData.email || "";
-    profileContact.value = clientData.contact || "";
-    profilePassword.value = "********";
-    profilePassword.type = "password";
+    if (profileUsername) profileUsername.value = currentUser.username || "";
+    if (profileName) profileName.value = currentUser.name || "Client";
+    if (profileEmail) profileEmail.value = currentUser.email || "";
+    if (profileContact) profileContact.value = currentUser.contact || "";
+    if (profilePassword) {
+        profilePassword.value = "********";
+        profilePassword.type = "password";
+    }
 
-    renderItems();
+    // Initiate async data fetching
+    fetchItems();
+    
+    // Start session timeout
+    resetInactivityTimer();
+}
+
+async function fetchItems() {
+    // Show sleek skeleton loading state
+    dashboardControls.style.display = 'none'; // hide controls while loading
+    dashboardContent.innerHTML = `
+        <div class="skeleton-card">
+            <div class="skeleton-col">
+                <div class="skeleton-line title"></div>
+                <div class="skeleton-line spec"></div>
+                <div class="skeleton-row" style="margin-top: 1rem;">
+                    <div class="skeleton-line pill"></div>
+                    <div class="skeleton-line pill"></div>
+                </div>
+                <div class="skeleton-line pill"></div>
+            </div>
+            <div class="skeleton-col" style="align-items: flex-end; justify-content: flex-end;">
+                <div class="skeleton-line btn"></div>
+            </div>
+        </div>
+        <div class="skeleton-card">
+            <div class="skeleton-col">
+                <div class="skeleton-line title" style="width: 250px;"></div>
+                <div class="skeleton-line spec" style="width: 180px;"></div>
+                <div class="skeleton-row" style="margin-top: 1rem;">
+                    <div class="skeleton-line pill"></div>
+                    <div class="skeleton-line pill"></div>
+                </div>
+            </div>
+            <div class="skeleton-col" style="align-items: flex-end; justify-content: flex-end;">
+                <div class="skeleton-line btn"></div>
+            </div>
+        </div>
+    `;
+
+    // Spin the refresh button if clicked
+    if (refreshBtn) refreshBtn.classList.add('spinning');
+
+    // Call the new backend action you will implement
+    const result = await fetchBackend('get_items', { identifier: currentUser.username || currentUser.email });
+
+    if (refreshBtn) refreshBtn.classList.remove('spinning');
+
+    if (result.success) {
+        // Pre-parse timestamps for high-performance sorting
+        currentHardware = (result.hardware || []).map(item => ({
+            ...item,
+            _parsedPurchase: new Date(item.purchaseDate).getTime(),
+            _parsedWarrantyEnd: new Date(item.warrantyEndDate).getTime()
+        }));
+        
+        renderItems();
+    } else {
+        dashboardContent.innerHTML = `
+            <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem;">
+                <h3 style="color: var(--error-color);">Failed to load items</h3>
+                <p style="color: var(--text-secondary);">${result.message || "An error occurred while fetching your workspace."}</p>
+                <button class="btn secondary" style="margin-top: 1rem;" onclick="fetchItems()">Try Again</button>
+            </div>
+        `;
+    }
+}
+
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', fetchItems);
 }
 
 function renderItems() {
@@ -410,17 +503,19 @@ function renderItems() {
         }
 
         const newCard = document.createElement('div');
-        newCard.className = 'card item-card';
+        newCard.className = 'card item-card' + (item._syncing ? ' item-syncing' : '');
         const safeName = escapeHTML(item.itemName);
         const safeSpecs = escapeHTML(item.specs);
         const safeSN = escapeHTML(item.serialNumber);
         const safeDriveUrl = escapeHTML(item.driveUrl);
 
+        const syncBadge = item._syncing ? `<span class="sync-badge">Saving…</span>` : '';
+
         newCard.innerHTML = `
             <div class="item-card-left">
                 <div class="item-header" onclick="this.closest('.item-card-left').classList.toggle('expanded')">
                     <div class="item-header-text">
-                        <h3>${safeName}</h3>
+                        <h3>${safeName} ${syncBadge}</h3>
                         ${safeSpecs ? `<p class="item-spec">${safeSpecs}</p>` : ''}
                     </div>
                     <svg class="mobile-expand-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -440,11 +535,11 @@ function renderItems() {
             <div class="item-card-right">
                 <div class="item-card-actions-top">
                     <div class="warranty-counter ${isExpired ? 'expired' : ''}">${warrantyText}</div>
-                    ${!isExpired ? `<a href="#" class="file-claim-link" onclick="event.preventDefault(); openClaimModal('${safeName.replace(/'/g, "\\'")}')">File Claim</a>` : ''}
+                    ${!isExpired && !item._syncing ? `<a href="#" class="file-claim-link" onclick="event.preventDefault(); openClaimModal('${safeName.replace(/'/g, "\\'")}')">File Claim</a>` : ''}
                 </div>
                 <div class="item-card-actions-bottom">
                     ${safeDriveUrl ? `<a href="${safeDriveUrl}" target="_blank" class="invoice-btn">📄 View Invoice</a>` : ''}
-                    <button class="delete-btn" title="Delete Item" onclick="deleteItem('${safeName.replace(/'/g, "\\'")}', '${safeSN ? safeSN.replace(/'/g, "\\'") : ''}', '${safeDriveUrl || ''}')">🗑️</button>
+                    ${!item._syncing ? `<button class="delete-btn" title="Delete Item" onclick="deleteItem('${safeName.replace(/'/g, "\\'")}', '${safeSN ? safeSN.replace(/'/g, "\\'") : ''}', '${safeDriveUrl || ''}')">🗑️</button>` : ''}
                 </div>
             </div>
         `;
@@ -610,29 +705,7 @@ function stopInactivityTimer() {
     window.addEventListener(evt, resetInactivityTimer, { passive: true })
 );
 
-// --- Transition to Dashboard ---
-function transitionToDashboard(clientData) {
-    currentUser = clientData;
-    clientNameEl.textContent = currentUser.name;
-    
-    // Populate profile view
-    profileUsername.value = currentUser.username;
-    profileName.value = currentUser.name;
-    profileEmail.value = currentUser.email;
-    profileContact.value = currentUser.contact || '';
-    profilePassword.value = '********';
-    
-    currentHardware = currentUser.hardware.map(item => ({
-        ...item,
-        _parsedPurchase: new Date(item.purchaseDate).getTime(),
-        _parsedWarrantyEnd: new Date(item.warrantyEndDate).getTime()
-    }));
-    
-    showView(dashboardView);
-    renderItems();
-    
-    resetInactivityTimer();
-}
+// --- (Old duplicate removed — transitionToDashboard is now defined above line 345) ---
 
 // --- Modal Logic ---
 
@@ -956,74 +1029,91 @@ addItemForm.addEventListener('submit', async (e) => {
         addDuration(warrantyEnd, extWarrantyVal.value, extWarrantyUnit.value);
     }
 
-    const formattedEnd = warrantyEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-
-    // File handling
+    // Read file before closing modal (needs DOM access)
     let fileBase64 = null;
     let fileName = null;
     let mimeType = null;
-    
     const file = fileInput2.files[0];
-    
-    // UI Loading state
-    submitBtn.textContent = "Saving...";
+
+    // Quick button flash to confirm click
+    submitBtn.textContent = "Adding...";
     submitBtn.disabled = true;
 
     try {
         if (file) {
             fileBase64 = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]); // get base64 part
+                reader.onload = () => resolve(reader.result.split(',')[1]);
                 reader.onerror = error => reject(error);
                 reader.readAsDataURL(file);
             });
             fileName = file.name;
             mimeType = file.type;
         }
+    } catch (readErr) {
+        console.error("File read error:", readErr);
+        submitBtn.textContent = "Add Item";
+        submitBtn.disabled = false;
+        alert("Could not read the selected file. Please try again.");
+        return;
+    }
 
-        // Build Payload
-        const payload = {
-            username: currentUser.username, // From global state
-            itemName: itemName,
-            serialNumber: itemSerial,
-            specs: itemSpecs,
-            purchaseDate: itemDate, // YYYY-MM-DD
-            warrantyEndDate: warrantyEnd.toISOString(),
-            fileBase64: fileBase64,
-            fileName: fileName,
-            mimeType: mimeType
-        };
+    // --- OPTIMISTIC UI: Instantly show the item & close modal ---
+    const optimisticItem = {
+        itemName: itemName,
+        serialNumber: itemSerial,
+        specs: itemSpecs,
+        purchaseDate: itemDate,
+        warrantyEndDate: warrantyEnd.toISOString(),
+        driveUrl: '', // Pending — will be filled by backend
+        _parsedPurchase: new Date(itemDate).getTime(),
+        _parsedWarrantyEnd: warrantyEnd.getTime(),
+        _syncing: true // Flag for the syncing indicator
+    };
 
-        // Send to Backend
+    currentHardware.push(optimisticItem);
+    renderItems();
+
+    // Close modal & reset form instantly
+    resetAddForm();
+    addItemModal.classList.remove('active');
+    submitBtn.textContent = "Add Item";
+    submitBtn.disabled = false;
+
+    // --- BACKGROUND: Send to backend silently ---
+    const payload = {
+        username: currentUser.username,
+        itemName: itemName,
+        serialNumber: itemSerial,
+        specs: itemSpecs,
+        purchaseDate: itemDate,
+        warrantyEndDate: warrantyEnd.toISOString(),
+        fileBase64: fileBase64,
+        fileName: fileName,
+        mimeType: mimeType
+    };
+
+    try {
         const result = await fetchBackend('add_hardware', payload);
 
         if (result.success) {
-            // Update local state and render (including pre-parsed dates)
-            currentHardware.push({
-                itemName: itemName,
-                serialNumber: itemSerial,
-                specs: itemSpecs,
-                purchaseDate: itemDate,
-                warrantyEndDate: warrantyEnd.toISOString(),
-                driveUrl: result.driveUrl,
-                _parsedPurchase: new Date(itemDate).getTime(),
-                _parsedWarrantyEnd: warrantyEnd.getTime()
-            });
-            
-            renderItems();
-
-            // Reset and close
-            resetAddForm();
-            addItemModal.classList.remove('active');
+            // Backend confirmed — update the optimistic item with real data
+            optimisticItem.driveUrl = result.driveUrl || '';
+            optimisticItem._syncing = false;
+            renderItems(); // Re-render to remove syncing indicator
         } else {
-            alert("Error adding item: " + result.message);
+            // Backend rejected — rollback the optimistic item
+            const idx = currentHardware.indexOf(optimisticItem);
+            if (idx > -1) currentHardware.splice(idx, 1);
+            renderItems();
+            alert("Failed to save item: " + (result.message || "Unknown error. Please try again."));
         }
-    } catch (e) {
-        console.error(e);
-        alert("An error occurred while saving.");
-    } finally {
-        submitBtn.textContent = "Add Item";
-        submitBtn.disabled = false;
+    } catch (netErr) {
+        // Network failure — rollback
+        const idx = currentHardware.indexOf(optimisticItem);
+        if (idx > -1) currentHardware.splice(idx, 1);
+        renderItems();
+        alert("Network error while saving. The item was not saved. Please try again.");
     }
 });
 
