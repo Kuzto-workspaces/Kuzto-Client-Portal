@@ -16,8 +16,15 @@ const loginError = document.getElementById('login-error');
 const setupError = document.getElementById('setup-error');
 const usernameStatus = document.getElementById('username-status');
 
+// Auth Tabs
+const tabSignin = document.getElementById('tab-signin');
+const tabSignup = document.getElementById('tab-signup');
+const signinSection = document.getElementById('signin-section');
+const signupSection = document.getElementById('signup-section');
+
 // Setup Inputs
 const setupEmail = document.getElementById('setup-email');
+const setupName = document.getElementById('setup-name');
 const setupUsername = document.getElementById('setup-username');
 const setupPassword = document.getElementById('setup-password');
 const setupConfirm = document.getElementById('setup-confirm');
@@ -27,9 +34,13 @@ const setupCancelBtn = document.getElementById('setup-cancel-btn');
 
 // Profile View Inputs
 const profileUsername = document.getElementById('profile-username');
+const profileName = document.getElementById('profile-name');
+const editNameBtn = document.getElementById('edit-name-btn');
 const profileEmail = document.getElementById('profile-email');
+const profileContact = document.getElementById('profile-contact');
+const editContactBtn = document.getElementById('edit-contact-btn');
 const profilePassword = document.getElementById('profile-password');
-const viewPasswordBtn = document.getElementById('view-password-btn');
+const editPasswordBtn = document.getElementById('edit-password-btn');
 
 // Modal Elements
 const addItemFab = document.getElementById('add-item-fab');
@@ -40,13 +51,44 @@ const addItemForm = document.getElementById('add-item-form');
 // Buttons
 const profileBtn = document.getElementById('profile-fab');
 const logoutBtn = document.getElementById('logout-btn');
-const backToDashBtn = document.getElementById('back-to-dash-btn');
 const clientNameEl = document.getElementById('client-name');
+
+// New Modals
+const claimModal = document.getElementById('claim-modal');
+const closeClaimModalBtn = document.getElementById('close-claim-modal-btn');
+const cancelClaimBtn = document.getElementById('cancel-claim-btn');
+const claimForm = document.getElementById('claim-form');
+const claimItemNameLabel = document.getElementById('claim-item-name');
+const claimDisplayName = document.getElementById('claim-display-name');
+const claimIssue = document.getElementById('claim-issue');
+const claimStatus = document.getElementById('claim-status');
+const claimOutputSection = document.getElementById('claim-output-section');
+const claimTemplateOutput = document.getElementById('claim-template-output');
+const copyTemplateBtn = document.getElementById('copy-template-btn');
+const downloadInvoiceBtn = document.getElementById('download-invoice-btn');
+const copyStatus = document.getElementById('copy-status');
+
+const forgotPasswordLink = document.getElementById('forgot-password-link');
+const forgotPasswordModal = document.getElementById('forgot-password-modal');
+const closeForgotModalBtn = document.getElementById('close-forgot-modal-btn');
+const forgotPasswordForm = document.getElementById('forgot-password-form');
+const forgotUsername = document.getElementById('forgot-username');
+const forgotStatus = document.getElementById('forgot-status');
 
 // State
 let isUsernameAvailable = false;
 let heldUsername = "";
 let currentUser = null;
+let currentClaimItem = "";
+let inactivityTimer;
+
+// --- Security: HTML Escape Utility ---
+function escapeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
 
 // --- Utility Functions ---
 function showView(viewElement) {
@@ -101,6 +143,10 @@ async function handleGoogleLogin(response) {
         if (result.requiresProfileSetup) {
             // First time user via Google
             setupEmail.value = result.email;
+            // Pre-fill name from Google profile if available
+            if (result.name) {
+                setupName.value = result.name;
+            }
             showView(profileSetupView);
         } else {
             // Returning user
@@ -109,6 +155,27 @@ async function handleGoogleLogin(response) {
     } else {
         loginError.textContent = result.message || "Google Authentication failed.";
     }
+}
+
+// --- Auth Tab Switching ---
+if (tabSignin && tabSignup) {
+    tabSignin.addEventListener('click', () => {
+        tabSignin.classList.add('active');
+        tabSignup.classList.remove('active');
+        signinSection.classList.add('active');
+        signinSection.style.display = 'block';
+        signupSection.classList.remove('active');
+        signupSection.style.display = 'none';
+    });
+    
+    tabSignup.addEventListener('click', () => {
+        tabSignup.classList.add('active');
+        tabSignin.classList.remove('active');
+        signupSection.classList.add('active');
+        signupSection.style.display = 'block';
+        signinSection.classList.remove('active');
+        signinSection.style.display = 'none';
+    });
 }
 
 // 2. Email or Username / Password Login
@@ -198,7 +265,7 @@ profileSetupForm.addEventListener('submit', async (e) => {
         email: setupEmail.value,
         username: heldUsername,
         password: password,
-        name: "Client" // Default name
+        name: setupName.value.trim() || "Client"
     });
 
     if (result.success) {
@@ -223,6 +290,7 @@ profileSetupForm.addEventListener('submit', async (e) => {
 function resetSetupForm() {
     profileSetupForm.reset();
     setupUsername.disabled = false;
+    setupName.value = '';
     checkUsernameBtn.disabled = false;
     setupPassword.disabled = true;
     setupConfirm.disabled = true;
@@ -259,7 +327,9 @@ function transitionToDashboard(clientData) {
 
     // Populate profile fields
     profileUsername.value = clientData.username || "";
+    profileName.value = clientData.name || "Client";
     profileEmail.value = clientData.email || "";
+    profileContact.value = clientData.contact || "";
     profilePassword.value = "********";
     profilePassword.type = "password";
 
@@ -341,21 +411,40 @@ function renderItems() {
 
         const newCard = document.createElement('div');
         newCard.className = 'card item-card';
+        const safeName = escapeHTML(item.itemName);
+        const safeSpecs = escapeHTML(item.specs);
+        const safeSN = escapeHTML(item.serialNumber);
+        const safeDriveUrl = escapeHTML(item.driveUrl);
+
         newCard.innerHTML = `
             <div class="item-card-left">
-                <h3>${item.itemName}</h3>
-                ${item.specs ? `<p class="item-spec">${item.specs}</p>` : ''}
+                <div class="item-header" onclick="this.closest('.item-card-left').classList.toggle('expanded')">
+                    <div class="item-header-text">
+                        <h3>${safeName}</h3>
+                        ${safeSpecs ? `<p class="item-spec">${safeSpecs}</p>` : ''}
+                    </div>
+                    <svg class="mobile-expand-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
                 <div class="item-details-row">
-                    ${item.serialNumber ? `<span class="sn-copy" onclick="copySN('${item.serialNumber}', this)">SN: ${item.serialNumber}</span>` : ''}
-                    <span>Purchased: ${formattedDate}</span>
-                    <span>Warranty till: ${formattedEnd}</span>
+                    ${safeSN ? `<span class="detail-pill sn-copy" onclick="copySN('${safeSN.replace(/'/g, "\\'")}', this)">
+                        <span class="detail-label">SN:</span> <span class="detail-value">${safeSN}</span>
+                    </span>` : ''}
+                    <span class="detail-pill">
+                        <span class="detail-label">Purchased:</span> <span class="detail-value">${formattedDate}</span>
+                    </span>
+                    <span class="detail-pill">
+                        <span class="detail-label">Warranty till:</span> <span class="detail-value">${formattedEnd}</span>
+                    </span>
                 </div>
             </div>
             <div class="item-card-right">
-                <div class="warranty-counter ${isExpired ? 'expired' : ''}">${warrantyText}</div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
-                    ${item.driveUrl ? `<a href="${item.driveUrl}" target="_blank" class="invoice-btn">📄 View Invoice</a>` : ''}
-                    <button class="delete-btn" title="Delete Item" onclick="deleteItem('${item.itemName.replace(/'/g, "\\'")}', '${item.serialNumber ? item.serialNumber.replace(/'/g, "\\'") : ''}', '${item.driveUrl || ''}')">🗑️</button>
+                <div class="item-card-actions-top">
+                    <div class="warranty-counter ${isExpired ? 'expired' : ''}">${warrantyText}</div>
+                    ${!isExpired ? `<a href="#" class="file-claim-link" onclick="event.preventDefault(); openClaimModal('${safeName.replace(/'/g, "\\'")}')">File Claim</a>` : ''}
+                </div>
+                <div class="item-card-actions-bottom">
+                    ${safeDriveUrl ? `<a href="${safeDriveUrl}" target="_blank" class="invoice-btn">📄 View Invoice</a>` : ''}
+                    <button class="delete-btn" title="Delete Item" onclick="deleteItem('${safeName.replace(/'/g, "\\'")}', '${safeSN ? safeSN.replace(/'/g, "\\'") : ''}', '${safeDriveUrl || ''}')">🗑️</button>
                 </div>
             </div>
         `;
@@ -381,43 +470,92 @@ profileBtn.addEventListener('click', () => {
     if (profileContent.style.display === 'block') {
         profileContent.style.display = 'none';
         dashboardContent.style.display = 'grid';
-        if (currentHardware.length > 0) dashboardControls.style.display = 'flex';
     } else {
         dashboardContent.style.display = 'none';
-        dashboardControls.style.display = 'none';
         profileContent.style.display = 'block';
     }
 });
 
-backToDashBtn.addEventListener('click', () => {
-    profileContent.style.display = 'none';
-    dashboardContent.style.display = 'grid';
-    if (currentHardware.length > 0) dashboardControls.style.display = 'flex';
-});
+// Feature removed due to password hashing security upgrade
+// viewPasswordBtn.addEventListener('click', async () => { ... });
 
-// View Password feature (MVP requirement)
-viewPasswordBtn.addEventListener('click', async () => {
-    if (profilePassword.type === "password") {
-        viewPasswordBtn.textContent = "Loading...";
-        viewPasswordBtn.disabled = true;
-
-        const result = await fetchBackend('get_password', { username: currentUser.username });
-        
-        if (result.success) {
-            profilePassword.value = result.password;
-            profilePassword.type = "text";
-            viewPasswordBtn.textContent = "Hide";
+// Edit Profile Fields Logic (Mock Frontend)
+function setupEditToggle(inputEl, btnEl, fieldName) {
+    btnEl.addEventListener('click', async () => {
+        if (inputEl.hasAttribute('readonly')) {
+            // Enable editing
+            inputEl.removeAttribute('readonly');
+            inputEl.removeAttribute('disabled');
+            inputEl.focus();
+            
+            // If it's a password field and currently hidden, clear the "********"
+            if (fieldName === 'Password' && inputEl.type === 'password' && inputEl.value === '********') {
+                inputEl.value = '';
+            }
+            
+            btnEl.textContent = 'Save';
+            btnEl.classList.remove('secondary');
+            btnEl.classList.add('primary');
         } else {
-            alert("Error fetching password: " + result.message);
-            viewPasswordBtn.textContent = "View";
+            // Save logic to backend
+            const newValue = inputEl.value.trim();
+            const originalValue = fieldName === 'Name' ? currentUser.name : 
+                                  fieldName === 'Contact' ? currentUser.contact : 
+                                  '********';
+
+            // Optimistic UI updates
+            inputEl.setAttribute('readonly', 'true');
+            inputEl.setAttribute('disabled', 'true');
+            btnEl.textContent = 'Saving...';
+            btnEl.disabled = true;
+            
+            // Backend call
+            const result = await fetchBackend('update_profile', {
+                username: currentUser.username,
+                field: fieldName,
+                value: newValue
+            });
+            
+            btnEl.disabled = false;
+            
+            if (result.success) {
+                btnEl.textContent = fieldName === 'Password' ? 'Change' : 'Edit';
+                btnEl.classList.remove('primary');
+                btnEl.classList.add('secondary');
+                
+                // Update global state
+                if (fieldName === 'Name') {
+                    clientNameEl.textContent = newValue;
+                    if (currentUser) currentUser.name = newValue;
+                }
+                if (fieldName === 'Contact') {
+                    if (currentUser) currentUser.contact = newValue;
+                }
+                
+                // Always clear password input after change
+                if (fieldName === 'Password') {
+                    inputEl.value = '********';
+                }
+                
+                // Optional: show a small toast or inline success here
+                
+            } else {
+                // Revert on failure
+                alert(result.message || `Failed to update ${fieldName}`);
+                inputEl.removeAttribute('readonly');
+                inputEl.removeAttribute('disabled');
+                btnEl.textContent = 'Save';
+                if (fieldName !== 'Password') {
+                    inputEl.value = originalValue;
+                }
+            }
         }
-        viewPasswordBtn.disabled = false;
-    } else {
-        profilePassword.value = "********";
-        profilePassword.type = "password";
-        viewPasswordBtn.textContent = "View";
-    }
-});
+    });
+}
+
+setupEditToggle(profileName, editNameBtn, 'Name');
+setupEditToggle(profileContact, editContactBtn, 'Contact');
+setupEditToggle(profilePassword, editPasswordBtn, 'Password');
 
 // Logout
 logoutBtn.addEventListener('click', () => {
@@ -426,11 +564,75 @@ logoutBtn.addEventListener('click', () => {
     loginError.textContent = "";
     currentUser = null;
     
-    // Reset profile view state
-    profilePassword.value = "********";
-    profilePassword.type = "password";
-    viewPasswordBtn.textContent = "View";
+    // Reset all profile view state
+    profileUsername.value = '';
+    profileName.value = '';
+    profileEmail.value = '';
+    profileContact.value = '';
+    profilePassword.value = '********';
+    
+    // Reset edit button states
+    [editNameBtn, editContactBtn, editPasswordBtn].forEach(btn => {
+        btn.textContent = btn === editPasswordBtn ? 'Change' : 'Edit';
+        btn.classList.remove('primary');
+        btn.classList.add('secondary');
+    });
+    [profileName, profileContact, profilePassword].forEach(input => {
+        input.setAttribute('readonly', 'true');
+        input.setAttribute('disabled', 'true');
+    });
+    
+    // Hide profile, ready for next login
+    profileContent.style.display = 'none';
+    dashboardContent.style.display = 'grid';
+    
+    stopInactivityTimer();
 });
+
+// --- Inactivity Auto-Logout ---
+function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    if (currentUser) {
+        // 15 minutes = 900,000 ms
+        inactivityTimer = setTimeout(() => {
+            alert("Your session has expired due to inactivity.");
+            logoutBtn.click();
+        }, 900000);
+    }
+}
+
+function stopInactivityTimer() {
+    clearTimeout(inactivityTimer);
+}
+
+// Listen to user activity to reset timer
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => 
+    window.addEventListener(evt, resetInactivityTimer, { passive: true })
+);
+
+// --- Transition to Dashboard ---
+function transitionToDashboard(clientData) {
+    currentUser = clientData;
+    clientNameEl.textContent = currentUser.name;
+    
+    // Populate profile view
+    profileUsername.value = currentUser.username;
+    profileName.value = currentUser.name;
+    profileEmail.value = currentUser.email;
+    profileContact.value = currentUser.contact || '';
+    profilePassword.value = '********';
+    
+    currentHardware = currentUser.hardware.map(item => ({
+        ...item,
+        _parsedPurchase: new Date(item.purchaseDate).getTime(),
+        _parsedWarrantyEnd: new Date(item.warrantyEndDate).getTime()
+    }));
+    
+    showView(dashboardView);
+    renderItems();
+    
+    resetInactivityTimer();
+}
 
 // --- Modal Logic ---
 
@@ -455,7 +657,8 @@ extWarrantyToggle.addEventListener('change', () => {
         extWarrantyField.classList.add('visible');
     } else {
         extWarrantyField.classList.remove('visible');
-        document.getElementById('item-ext-period').selectedIndex = 0;
+        document.getElementById('item-ext-val').value = '';
+        document.getElementById('item-ext-unit').selectedIndex = 2; // Reset to 'Years'
     }
 });
 
@@ -520,20 +723,153 @@ closeModalBtn.addEventListener('click', () => {
     resetAddForm();
 });
 
+// --- New Modals Logic (Warranty Claim & Forgot Password) ---
+
+// Open Claim Modal (Global function for onclick)
+window.openClaimModal = function(itemName) {
+    currentClaimItem = itemName;
+    claimItemNameLabel.textContent = itemName;
+    claimForm.reset();
+    if(claimStatus) claimStatus.textContent = '';
+    
+    // Reset Template UI
+    claimOutputSection.style.display = 'none';
+    copyStatus.textContent = '';
+    
+    claimModal.classList.add('active');
+};
+
+[closeClaimModalBtn, cancelClaimBtn].forEach(btn => {
+    if(btn) btn.addEventListener('click', () => claimModal.classList.remove('active'));
+});
+
+claimForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submit-claim-btn');
+    
+    let displayName = claimDisplayName.value.trim();
+    if (!displayName) {
+        displayName = currentUser.name; // Fallback to profile name
+    }
+    
+    // Find the full item object from currentHardware
+    const item = currentHardware.find(h => h.itemName === currentClaimItem);
+    
+    if (!item) {
+        alert("Error: Item data not found.");
+        return;
+    }
+
+    const issueText = claimIssue.value.trim();
+
+    // Generate Template Text
+    const templateText = `Subject: Warranty Claim Request - ${item.itemName}
+
+To the Warranty Department,
+
+I am writing to formally file a warranty claim for my ${item.itemName}, which was purchased on ${item.purchaseDate.split('T')[0]}.
+
+Item Details:
+- Serial / Model Number: ${item.serialNumber || 'N/A'}
+- Specifications: ${item.specs || 'N/A'}
+
+Description of Issue:
+${issueText}
+
+Please find a copy of my original purchase invoice attached to this message for your reference. Kindly let me know the next steps required to resolve this issue.
+
+Thank you,
+${displayName}`;
+
+    // Show output
+    claimTemplateOutput.value = templateText;
+    claimOutputSection.style.display = 'block';
+    copyStatus.textContent = '';
+    
+    // Check if there is an invoice
+    if (item.driveUrl) {
+        downloadInvoiceBtn.style.display = 'block';
+        downloadInvoiceBtn.onclick = () => window.open(item.driveUrl, '_blank');
+    } else {
+        downloadInvoiceBtn.style.display = 'none';
+    }
+});
+
+// Copy Template Logic
+copyTemplateBtn.addEventListener('click', () => {
+    claimTemplateOutput.select();
+    claimTemplateOutput.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        navigator.clipboard.writeText(claimTemplateOutput.value).then(() => {
+            copyStatus.textContent = "Template copied to clipboard!";
+            copyStatus.className = "status-msg success";
+        }).catch(err => {
+            console.error("Async clipboard copy failed:", err);
+            // Fallback
+            document.execCommand('copy');
+            copyStatus.textContent = "Template copied to clipboard!";
+            copyStatus.className = "status-msg success";
+        });
+    } catch (err) {
+        console.error("Clipboard API failed:", err);
+        document.execCommand('copy');
+        copyStatus.textContent = "Template copied to clipboard!";
+        copyStatus.className = "status-msg success";
+    }
+});
+
+// Forgot Password Logic
+if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        forgotPasswordForm.reset();
+        forgotStatus.textContent = '';
+        forgotPasswordModal.classList.add('active');
+    });
+}
+
+if (closeForgotModalBtn) {
+    closeForgotModalBtn.addEventListener('click', () => {
+        forgotPasswordModal.classList.remove('active');
+    });
+}
+
+forgotPasswordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submit-forgot-btn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+    forgotStatus.textContent = '';
+    
+    const result = await fetchBackend('reset_password', { username: forgotUsername.value.trim() });
+    
+    btn.textContent = 'Send Temporary Password';
+    btn.disabled = false;
+    
+    if (result.success) {
+        alert("If the username exists, a temporary password has been emailed to the address on file.");
+        forgotPasswordModal.classList.remove('active');
+    } else {
+        forgotStatus.textContent = result.message || "Failed to process request.";
+    }
+});
+
+// Click outside modals to close them
 window.addEventListener('click', (e) => {
     if (e.target === addItemModal) {
         addItemModal.classList.remove('active');
         resetAddForm();
     }
+    if (e.target === claimModal) {
+        claimModal.classList.remove('active');
+    }
+    if (e.target === forgotPasswordModal) {
+        forgotPasswordModal.classList.remove('active');
+    }
 });
 
-function resetAddForm() {
-    addItemForm.reset();
-    specCharCount.textContent = '(0/80)';
-    extWarrantyField.classList.remove('visible');
-    fileNameDisplay.textContent = '';
-    fileUploadError.textContent = '';
-}
 
 // Input validation for warranty fields
 function validateWarrantyInput(valInput, unitSelect, errorElement) {
@@ -691,13 +1027,21 @@ addItemForm.addEventListener('submit', async (e) => {
     }
 });
 
+function resetAddForm() {
+    addItemForm.reset();
+    specCharCount.textContent = '(0/80)';
+    extWarrantyField.classList.remove('visible');
+    fileNameDisplay.textContent = '';
+    fileUploadError.textContent = '';
+}
+
 // --- MOCK BACKEND FOR TESTING ---
 function mockBackend(action, data) {
     console.log(`[Mock API] Action: ${action}`, data);
     return new Promise(resolve => {
         setTimeout(() => {
             if (action === 'login' && data.type === 'google') {
-                resolve({ success: true, requiresProfileSetup: true, email: "test@google.com" });
+                resolve({ success: true, requiresProfileSetup: true, email: "test@google.com", name: "Google User" });
             } else if (action === 'check_username') {
                 const isTaken = data.username.toLowerCase() === 'admin';
                 resolve({ success: true, available: !isTaken });
@@ -708,10 +1052,17 @@ function mockBackend(action, data) {
             } else if (action === 'login' && data.type === 'email_or_username') {
                 resolve({ 
                     success: true, 
-                    clientData: { name: "Test User", username: data.identifier, email: "test@example.com" } 
+                    clientData: { name: "Test User", username: data.identifier, email: "test@example.com", contact: "+91 98765 43210" } 
                 });
             } else if (action === 'get_password') {
                 resolve({ success: true, password: "MySecretPassword123" });
+            } else if (action === 'update_profile') {
+                // Mock rate limit
+                if (data.field === 'Name' && data.value === 'limit') {
+                     resolve({ success: false, message: 'Name can only be changed once a week.'});
+                } else {
+                     resolve({ success: true, updated: true });
+                }
             } else {
                 resolve({ success: false, message: "Mock error." });
             }

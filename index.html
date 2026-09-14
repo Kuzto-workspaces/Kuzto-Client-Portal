@@ -17,46 +17,73 @@
                 <h1 class="logo">Kuzto</h1>
                 <p class="subtitle">Client Portal</p>
             </header>
-            <h2>Sign In / Create Account</h2>
-            <p>Access your workspace architecture details or create a new account.</p>
             
+            <div class="auth-tabs">
+                <button type="button" id="tab-signin" class="auth-tab active">Sign In</button>
+                <button type="button" id="tab-signup" class="auth-tab">Sign Up</button>
+            </div>
+
             <div class="login-methods">
-                <!-- Google OAuth -->
-                <div class="google-login-container">
-                    <div id="g_id_onload"
-                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
-                         data-context="use"
-                         data-ux_mode="popup"
-                         data-callback="handleGoogleLogin"
-                         data-auto_prompt="false">
+                <!-- Sign In Section -->
+                <div id="signin-section" class="auth-section active">
+                    <form id="email-login-form">
+                        <div class="input-group">
+                            <label for="identifier">Email or Username</label>
+                            <input type="text" id="identifier" required placeholder="name@example.com or Username">
+                        </div>
+                        <div class="input-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" required placeholder="••••••••">
+                        </div>
+                        <div style="text-align: right; margin-bottom: 1rem;">
+                            <a href="#" id="forgot-password-link" style="font-size: 0.85rem; color: var(--accent-color); text-decoration: none;">Forgot Password?</a>
+                        </div>
+                        <button type="submit" class="btn primary">Sign In</button>
+                        <p id="login-error" class="error-msg"></p>
+                    </form>
+
+                    <div class="divider">
+                        <span>or</span>
                     </div>
-                    <div class="g_id_signin"
-                         data-type="standard"
-                         data-shape="rectangular"
-                         data-theme="outline"
-                         data-text="continue_with"
-                         data-size="large"
-                         data-logo_alignment="left">
+
+                    <div class="google-login-container">
+                        <div class="g_id_signin"
+                             data-type="standard"
+                             data-shape="rectangular"
+                             data-theme="outline"
+                             data-text="signin_with"
+                             data-size="large"
+                             data-logo_alignment="left">
+                        </div>
                     </div>
                 </div>
 
-                <div class="divider">
-                    <span>or</span>
+                <!-- Sign Up Section -->
+                <div id="signup-section" class="auth-section" style="display: none;">
+                    <div class="signup-info" style="text-align: center; margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 0.5rem; font-weight: 600;">New to Kuzto?</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Create your account using Google. After authenticating, you will set up your unique username and password for future logins.</p>
+                    </div>
+                    <div class="google-login-container">
+                        <div class="g_id_signin"
+                             data-type="standard"
+                             data-shape="rectangular"
+                             data-theme="outline"
+                             data-text="signup_with"
+                             data-size="large"
+                             data-logo_alignment="left">
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                <!-- Email/Password Form -->
-                <form id="email-login-form">
-                    <div class="input-group">
-                        <label for="identifier">Email or Username</label>
-                        <input type="text" id="identifier" required placeholder="name@example.com or Username" value="admin">
-                    </div>
-                    <div class="input-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" required placeholder="••••••••" value="password">
-                    </div>
-                    <button type="submit" class="btn primary">Sign In</button>
-                    <p id="login-error" class="error-msg"></p>
-                </form>
+            <!-- Global Google Auth Init -->
+            <div id="g_id_onload"
+                 data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                 data-context="use"
+                 data-ux_mode="popup"
+                 data-callback="handleGoogleLogin"
+                 data-auto_prompt="false">
             </div>
         </div>
 
@@ -73,6 +100,11 @@
                 <div class="input-group">
                     <label for="setup-email">Email (Verified via Google)</label>
                     <input type="email" id="setup-email" readonly disabled>
+                </div>
+
+                <div class="input-group">
+                    <label for="setup-name">Display Name</label>
+                    <input type="text" id="setup-name" placeholder="Your full name (optional, defaults to 'Client')">
                 </div>
                 
                 <div class="input-group">
@@ -117,12 +149,14 @@
             <!-- Search & Filter Bar -->
             <div class="search-filter-bar" id="dashboard-controls" style="display: none;">
                 <input type="text" id="search-input" placeholder="Search by Item Name or SN..." class="search-input">
-                <select id="sort-select" class="sort-select">
-                    <option value="warranty-low">Warranty: Low to High</option>
-                    <option value="warranty-high">Warranty: High to Low</option>
-                    <option value="date-new">Purchased: Newest First</option>
-                    <option value="date-old">Purchased: Oldest First</option>
-                </select>
+                <div class="sort-wrapper">
+                    <select id="sort-select" class="sort-select">
+                        <option value="warranty-low">Warranty: Low to High</option>
+                        <option value="warranty-high">Warranty: High to Low</option>
+                        <option value="date-new">Purchased: Newest First</option>
+                        <option value="date-old">Purchased: Oldest First</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Main Dashboard Content -->
@@ -135,28 +169,64 @@
             </div>
 
             <!-- Profile Management Content (Hidden by default) -->
-            <div id="profile-content" class="card" style="display: none; max-width: 600px; margin: 0 auto;">
-                <h3>Your Profile</h3>
+            <div id="profile-content" class="profile-panel" style="display: none;">
+                <div class="profile-panel-header">
+                    <div class="profile-avatar">👤</div>
+                    <h3>Your Profile</h3>
+                    <p class="profile-subtitle">Manage your account settings</p>
+                </div>
+
                 <div class="profile-details">
-                    <div class="input-group">
-                        <label>Username</label>
-                        <input type="text" id="profile-username" readonly disabled>
-                    </div>
-                    <div class="input-group">
-                        <label>Email</label>
-                        <input type="email" id="profile-email" readonly disabled>
-                    </div>
-                    <div class="input-group">
-                        <label>Password</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="password" id="profile-password" value="********" readonly disabled style="flex: 1;">
-                            <button type="button" id="view-password-btn" class="btn secondary small">View</button>
+                    <!-- Username (Read-only, locked) -->
+                    <div class="profile-field">
+                        <label class="profile-label">Username</label>
+                        <div class="profile-field-row">
+                            <input type="text" id="profile-username" class="profile-input" readonly disabled>
+                            <span class="field-badge badge-locked">🔒 Locked</span>
                         </div>
                     </div>
-                    <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
-                        <button id="back-to-dash-btn" class="btn secondary">Back to Dashboard</button>
-                        <button id="logout-btn" class="btn secondary" style="color: var(--error-color); border-color: #f5c6cb; background: #fdf0ef;">Sign Out</button>
+
+                    <!-- Name (Editable) -->
+                    <div class="profile-field">
+                        <label class="profile-label">Name</label>
+                        <div class="profile-field-row">
+                            <input type="text" id="profile-name" class="profile-input" readonly disabled>
+                            <button type="button" id="edit-name-btn" class="btn secondary small">Edit</button>
+                        </div>
                     </div>
+
+                    <!-- Email (Read-only) -->
+                    <div class="profile-field">
+                        <label class="profile-label">Email</label>
+                        <div class="profile-field-row">
+                            <input type="email" id="profile-email" class="profile-input" readonly disabled>
+                            <span class="field-badge badge-locked">🔒 Locked</span>
+                        </div>
+                    </div>
+
+                    <!-- Contact Details (Optional, editable) -->
+                    <div class="profile-field">
+                        <label class="profile-label">Contact Details <span class="label-hint">(Optional)</span></label>
+                        <div class="profile-field-row">
+                            <input type="text" id="profile-contact" class="profile-input" placeholder="Phone or alternate email" readonly disabled>
+                            <button type="button" id="edit-contact-btn" class="btn secondary small">Edit</button>
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="profile-field">
+                        <label class="profile-label">Password</label>
+                        <div class="profile-field-row profile-field-row--password">
+                            <input type="password" id="profile-password" class="profile-input" value="********" readonly disabled>
+                            <div class="profile-btn-group">
+                                <button type="button" id="edit-password-btn" class="btn secondary small">Change</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-signout-area">
+                    <button id="logout-btn" class="profile-signout-btn">Sign Out</button>
                 </div>
             </div>
 
@@ -166,7 +236,7 @@
             </div>
             
             <footer class="dashboard-footer">
-                <p>Need help? Reach out to us at <a href="mailto:kuztoworkspaces@gmail.com">kuztoworkspaces@gmail.com</a></p>
+                <p>Need help? Reach out to us at <span style="font-weight: 500; color: var(--text-primary);">kuztoworkspaces@gmail.com</span></p>
             </footer>
         </div>
     </div>
@@ -272,7 +342,71 @@
         </div>
     </div>
 
-    <!-- CryptoJS removed as per user request to store plain text password for viewing -->
+    <!-- Warranty Claim Modal -->
+    <div id="claim-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span id="close-claim-modal-btn" class="close-btn">&times;</span>
+            <h2>Generate Warranty Claim Template</h2>
+            
+            <div class="modal-scroll-area">
+                <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">Item:</span>
+                    <span id="claim-item-name" style="background: var(--bg-color); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 100px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary);"></span>
+                </div>
+                
+                <form id="claim-form">
+                    <div class="input-group">
+                        <label for="claim-display-name">Display Name (Optional)</label>
+                        <input type="text" id="claim-display-name" placeholder="Leave blank to use your profile name">
+                    </div>
+                    <div class="input-group">
+                        <label for="claim-issue">Describe the Issue</label>
+                        <textarea id="claim-issue" class="kuzto-textarea" required placeholder="What seems to be the problem?"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-claim-btn" class="btn secondary">Cancel</button>
+                        <button type="submit" id="submit-claim-btn" class="btn primary">Generate Template</button>
+                    </div>
+                </form>
+
+                <div id="claim-output-section" style="display: none; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Your Generated Template</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">Copy the text below and send it to the brand's customer support. Don't forget to attach your invoice!</p>
+                    
+                    <textarea id="claim-template-output" class="kuzto-textarea" readonly style="min-height: 250px; margin-bottom: 1rem;"></textarea>
+                    
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button type="button" id="copy-template-btn" class="btn primary" style="flex: 1;">Copy to Clipboard</button>
+                        <button type="button" id="download-invoice-btn" class="btn secondary" style="flex: 1; display: none;">Download Invoice</button>
+                    </div>
+                    <p id="copy-status" class="status-msg success" style="text-align: center; margin-top: 0.5rem;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span id="close-forgot-modal-btn" class="close-btn">&times;</span>
+            <h2>Forgot Password</h2>
+            
+            <div class="modal-scroll-area">
+                <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Enter your username to receive a temporary password.</p>
+                <form id="forgot-password-form">
+                    <div class="input-group">
+                        <label for="forgot-username">Username</label>
+                        <input type="text" id="forgot-username" required placeholder="Your username">
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0.5rem;">
+                        <button type="submit" id="submit-forgot-btn" class="btn primary" style="width: 100%;">Send Temporary Password</button>
+                    </div>
+                    <p id="forgot-status" class="status-msg"></p>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="portal.js"></script>
 </body>
 </html>
