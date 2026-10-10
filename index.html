@@ -139,12 +139,19 @@
             <div class="dashboard-header">
                 <div>
                     <h2>Welcome, <span id="client-name">Client</span></h2>
+                    <div class="header-badges-row">
+                        <span id="user-tier-badge" class="tier-badge free">Free</span>
+                        <span id="user-capacity-badge" class="capacity-pill">0 / 10 Items</span>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span class="header-branding-text">Kuzto W-Slip Manager</span>
                     <button id="profile-fab" class="header-profile-btn" title="View Profile">👤</button>
                 </div>
             </div>
+
+            <!-- Subscription Lifecycle Notification Banner (Stage 1 Warning & Stage 2 Grace) -->
+            <div id="lifecycle-banner-container" class="lifecycle-banner-container" style="display: none;"></div>
 
             <!-- Search & Filter Bar -->
             <div class="search-filter-bar" id="dashboard-controls" style="display: none;">
@@ -228,6 +235,28 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Subscription Plan & Archive Download -->
+                    <div class="profile-field profile-subscription-card">
+                        <div class="profile-sub-header">
+                            <div>
+                                <label class="profile-label">Current Subscription Plan</label>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <span id="profile-tier-badge" class="tier-badge free">Free</span>
+                                    <span id="profile-tier-expiry" class="profile-tier-expiry-text">Lifetime Access</span>
+                                </div>
+                            </div>
+                            <div id="profile-archive-action">
+                                <button type="button" id="download-full-archive-btn" class="btn secondary small" title="Download all invoices in a ZIP archive with a PDF manifest">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Download Archive (.ZIP)
+                                </button>
+                            </div>
+                        </div>
+                        <div class="profile-sub-limits" id="profile-tier-limits-text">
+                            <span>Capacity: 10 items</span> • <span>Max File Size: 100 KB</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="profile-signout-area">
@@ -259,6 +288,19 @@
                         <!-- COLUMN 1: REQUIRED -->
                         <div class="form-col">
                             <h3 class="col-title">Required Details</h3>
+
+                            <!-- Capacity Usage Bar -->
+                            <div class="modal-capacity-info">
+                                <div class="capacity-bar-wrap">
+                                    <div class="capacity-bar-label">
+                                        <span id="modal-capacity-text">Plan Usage: 0 / 10 Items</span>
+                                        <span id="modal-tier-indicator">Free Plan</span>
+                                    </div>
+                                    <div class="capacity-progress-track">
+                                        <div id="modal-capacity-fill" class="capacity-progress-fill" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <!-- 1. Item Name -->
                             <div class="input-group">
@@ -333,7 +375,8 @@
                                 <label>Invoice (PDF or Image)</label>
                                 <div class="file-upload-area" id="file-drop-area">
                                     <input type="file" id="item-invoice" accept=".pdf,.jpg,.jpeg,.png">
-                                    <p>Click to upload or drag & drop</p>
+                                    <p id="file-drop-prompt">Click to upload or drag & drop</p>
+                                    <p id="file-size-limit-label" class="file-size-limit-hint">Max file size: 100 KB</p>
                                     <div class="file-name" id="file-name-display"></div>
                                 </div>
                                 <p id="file-upload-error" class="error-msg"></p>

@@ -48,6 +48,21 @@ const addItemModal = document.getElementById('add-item-modal');
 const closeModalBtn = document.getElementById('close-modal-btn');
 const addItemForm = document.getElementById('add-item-form');
 
+// Subscription & Lifecycle Elements
+const userTierBadge = document.getElementById('user-tier-badge');
+const userCapacityBadge = document.getElementById('user-capacity-badge');
+const lifecycleBannerContainer = document.getElementById('lifecycle-banner-container');
+const profileTierBadge = document.getElementById('profile-tier-badge');
+const profileTierExpiry = document.getElementById('profile-tier-expiry');
+const profileTierLimitsText = document.getElementById('profile-tier-limits-text');
+const downloadFullArchiveBtn = document.getElementById('download-full-archive-btn');
+
+// Modal Capacity & File Limit Indicators
+const modalCapacityText = document.getElementById('modal-capacity-text');
+const modalTierIndicator = document.getElementById('modal-tier-indicator');
+const modalCapacityFill = document.getElementById('modal-capacity-fill');
+const fileSizeLimitLabel = document.getElementById('file-size-limit-label');
+
 // Buttons
 const profileBtn = document.getElementById('profile-fab');
 const logoutBtn = document.getElementById('logout-btn');
@@ -448,6 +463,169 @@ const sortSelect = document.getElementById('sort-select');
 const dashboardControls = document.getElementById('dashboard-controls');
 const refreshBtn = document.getElementById('refresh-btn');
 
+// --- Subscription, Tier & Lifecycle UI Handlers ---
+function updateTierAndCapacityUI() {
+    const tier = currentUser?.tier || 'Free';
+    const tierLower = tier.toLowerCase();
+    const maxItems = currentUser?.maxItems ?? 10;
+    const maxFileSizeKB = currentUser?.maxFileSizeKB ?? 100;
+    const currentCount = currentHardware.length;
+    const isUnlimited = maxItems === 999999;
+
+    // 1. Header Badges
+    if (userTierBadge) {
+        userTierBadge.textContent = tier;
+        userTierBadge.className = `tier-badge ${tierLower}`;
+    }
+    if (userCapacityBadge) {
+        userCapacityBadge.textContent = `${currentCount} / ${isUnlimited ? '∞' : maxItems} Items`;
+    }
+
+    // 2. Profile Subscription Details
+    if (profileTierBadge) {
+        profileTierBadge.textContent = tier;
+        profileTierBadge.className = `tier-badge ${tierLower}`;
+    }
+    if (profileTierExpiry) {
+        if (!currentUser?.tierExpiry || currentUser.tierExpiry === 'LIFETIME') {
+            profileTierExpiry.textContent = 'Lifetime Access';
+        } else {
+            const expDate = new Date(currentUser.tierExpiry);
+            profileTierExpiry.textContent = isNaN(expDate.getTime()) ? currentUser.tierExpiry : `Expires: ${expDate.toLocaleDateString()}`;
+        }
+    }
+    if (profileTierLimitsText) {
+        profileTierLimitsText.innerHTML = `<span>Capacity: ${isUnlimited ? 'Unlimited' : maxItems} items</span> • <span>Max File Size: ${maxFileSizeKB} KB</span>`;
+    }
+
+    // 3. Modal Capacity & Limit Info
+    if (modalCapacityText) {
+        modalCapacityText.textContent = `Plan Usage: ${currentCount} / ${isUnlimited ? '∞' : maxItems} Items`;
+    }
+    if (modalTierIndicator) {
+        modalTierIndicator.textContent = `${tier} Plan`;
+    }
+    if (modalCapacityFill) {
+        const pct = isUnlimited ? Math.min(100, (currentCount / 50) * 100) : Math.min(100, (currentCount / maxItems) * 100);
+        modalCapacityFill.style.width = `${pct}%`;
+        modalCapacityFill.classList.remove('near-limit', 'at-limit');
+        if (pct >= 100) modalCapacityFill.classList.add('at-limit');
+        else if (pct >= 80) modalCapacityFill.classList.add('near-limit');
+    }
+    if (fileSizeLimitLabel) {
+        fileSizeLimitLabel.textContent = `Max file size: ${maxFileSizeKB} KB`;
+    }
+
+    // 4. Render Lifecycle Alert Banners if applicable
+    renderLifecycleBanner();
+}
+
+function renderLifecycleBanner() {
+    if (!lifecycleBannerContainer) return;
+    const status = currentUser?.lifecycleStatus || 'NORMAL';
+    const tier = currentUser?.tier || 'Free';
+
+    if (status === 'STAGE_1_WARNING') {
+        lifecycleBannerContainer.className = 'lifecycle-banner-container warning';
+        lifecycleBannerContainer.style.display = 'flex';
+        lifecycleBannerContainer.innerHTML = `
+            <div class="lifecycle-banner-header">
+                <div class="lifecycle-banner-title">
+                    <span>⚠️</span>
+                    <span>Your ${escapeHTML(tier)} Subscription Has Ended</span>
+                </div>
+            </div>
+            <div class="lifecycle-banner-body">
+                Renew subscription to continue the service. You have a 24-hour grace window with full access before your account adjusts to Free tier limits.
+            </div>
+            <div class="lifecycle-banner-actions">
+                <button type="button" class="lifecycle-btn primary" onclick="downloadFullArchive(this)">
+                    📦 Download Complete Invoices (.ZIP)
+                </button>
+            </div>
+        `;
+    } else if (status === 'STAGE_2_GRACE') {
+        lifecycleBannerContainer.className = 'lifecycle-banner-container grace';
+        lifecycleBannerContainer.style.display = 'flex';
+        lifecycleBannerContainer.innerHTML = `
+            <div class="lifecycle-banner-header">
+                <div class="lifecycle-banner-title">
+                    <span>🚨</span>
+                    <span>Account Downgrade Grace Period (24h Remaining)</span>
+                </div>
+            </div>
+            <div class="lifecycle-banner-body">
+                Your account is currently in the Free tier grace period. Adding new items is blocked while over capacity. Download a complete backup archive of all your invoices before excess items are automatically purged.
+            </div>
+            <div class="lifecycle-banner-actions">
+                <button type="button" class="lifecycle-btn accent" onclick="downloadFullArchive(this)">
+                    📦 Download Complete Backup Archive (.ZIP + PDF)
+                </button>
+            </div>
+        `;
+    } else {
+        lifecycleBannerContainer.style.display = 'none';
+        lifecycleBannerContainer.innerHTML = '';
+    }
+}
+
+// 1-Click Complete Backup Archive Downloader
+window.downloadFullArchive = async function(triggerBtn) {
+    if (!currentUser || !currentUser.username) {
+        showToast("Please log in to download your archive.", "error");
+        return;
+    }
+
+    const originalHtml = triggerBtn ? triggerBtn.innerHTML : '';
+    if (triggerBtn) {
+        triggerBtn.innerHTML = '<span class="spinner"></span> Generating ZIP Archive...';
+        triggerBtn.disabled = true;
+    }
+
+    showToast("Generating invoice archive & PDF manifest... This may take a moment.", "info", 5000);
+
+    try {
+        const result = await fetchBackend('get_user_archive', { username: currentUser.username });
+        if (result.success && result.zipBase64) {
+            // Convert base64 to binary blob
+            const binaryString = atob(result.zipBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/zip' });
+            const downloadUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = result.fileName || `${currentUser.username}_wslip_invoices_archive.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+
+            showToast("Archive downloaded successfully!", "success");
+        } else {
+            showToast(result.message || "Failed to generate archive.", "error");
+        }
+    } catch (err) {
+        console.error("Archive download error:", err);
+        showToast("Error generating archive. Please try again.", "error");
+    } finally {
+        if (triggerBtn) {
+            triggerBtn.innerHTML = originalHtml;
+            triggerBtn.disabled = false;
+        }
+    }
+};
+
+if (downloadFullArchiveBtn) {
+    downloadFullArchiveBtn.addEventListener('click', function() {
+        downloadFullArchive(this);
+    });
+}
+
 function transitionToDashboard(clientData) {
     currentUser = clientData || {};
     try {
@@ -473,6 +651,9 @@ function transitionToDashboard(clientData) {
         profilePassword.value = "********";
         profilePassword.type = "password";
     }
+
+    // Refresh tier & capacity indicators
+    updateTierAndCapacityUI();
 
     // Initiate async data fetching
     fetchItems();
@@ -595,6 +776,7 @@ function renderItems() {
                 <p style="color: var(--text-secondary);">Items and specifications will appear here once populated by the Kuzto team.</p>
             </div>
         `;
+        updateTierAndCapacityUI();
         return;
     }
 
@@ -605,6 +787,7 @@ function renderItems() {
                 <p style="color: var(--text-secondary);">Try adjusting your search.</p>
             </div>
         `;
+        updateTierAndCapacityUI();
         return;
     }
 
@@ -678,6 +861,8 @@ function renderItems() {
         `;
         dashboardContent.appendChild(newCard);
     });
+
+    updateTierAndCapacityUI();
 }
 
 // Debounce helper for high-performance search typing
@@ -886,8 +1071,9 @@ fileInput2.addEventListener('change', () => {
         fileNameDisplay.textContent = "";
         return;
     }
-    if (file.size > 100 * 1024) {
-        fileUploadError.textContent = `File "${file.name}" exceeds 100 KB limit.`;
+    const maxKB = currentUser?.maxFileSizeKB || 100;
+    if (file.size > maxKB * 1024) {
+        fileUploadError.textContent = `File "${file.name}" exceeds your ${currentUser?.tier || 'Free'} plan limit of ${maxKB} KB.`;
         fileInput2.value = "";
         fileNameDisplay.textContent = "";
         return;
@@ -908,8 +1094,9 @@ fileDropArea.addEventListener('drop', (e) => {
     fileDropArea.style.borderColor = '';
     const file = e.dataTransfer.files[0];
     if (file) {
-        if (file.size > 100 * 1024) {
-            fileUploadError.textContent = `File "${file.name}" exceeds 100 KB limit.`;
+        const maxKB = currentUser?.maxFileSizeKB || 100;
+        if (file.size > maxKB * 1024) {
+            fileUploadError.textContent = `File "${file.name}" exceeds your ${currentUser?.tier || 'Free'} plan limit of ${maxKB} KB.`;
             return;
         }
         // Assign dropped file to the input
@@ -923,10 +1110,21 @@ fileDropArea.addEventListener('drop', (e) => {
 
 // Open / Close modal
 addItemFab.addEventListener('click', () => {
-    if (currentHardware.length >= 10) {
-        alert("You have reached the limit of 10 items. Please delete an item to add a new one.");
+    const maxItems = currentUser?.maxItems ?? 10;
+
+    // Check Stage 2 Grace lockout
+    if (currentUser?.lifecycleStatus === 'STAGE_2_GRACE' && currentHardware.length >= maxItems) {
+        showToast("Account is in downgrade grace period. Adding new items is restricted until capacity is within tier limits.", "error");
         return;
     }
+
+    // Dynamic Tier item capping
+    if (maxItems !== 999999 && currentHardware.length >= maxItems) {
+        showToast(`Limit Reached: Your ${currentUser?.tier || 'Free'} plan allows up to ${maxItems} items. Delete an item or upgrade to add more.`, "error");
+        return;
+    }
+
+    updateTierAndCapacityUI();
     addItemModal.classList.add('active');
 });
 
@@ -1146,6 +1344,19 @@ addItemForm.addEventListener('submit', async (e) => {
 
     if (!isMainValid || !isExtValid) return;
 
+    const maxItems = currentUser?.maxItems ?? 10;
+    if (maxItems !== 999999 && currentHardware.length >= maxItems) {
+        showToast(`Limit Reached: Your ${currentUser?.tier || 'Free'} plan allows up to ${maxItems} items.`, "error");
+        return;
+    }
+
+    const file = fileInput2.files[0];
+    const maxKB = currentUser?.maxFileSizeKB || 100;
+    if (file && file.size > maxKB * 1024) {
+        showToast(`File exceeds your ${currentUser?.tier || 'Free'} plan limit of ${maxKB} KB.`, "error");
+        return;
+    }
+
     const itemName = document.getElementById('item-name').value;
     const itemSerial = document.getElementById('item-serial').value;
     const itemSpecs = document.getElementById('item-specs').value;
@@ -1176,7 +1387,6 @@ addItemForm.addEventListener('submit', async (e) => {
     let fileBase64 = null;
     let fileName = null;
     let mimeType = null;
-    const file = fileInput2.files[0];
 
     // Quick button flash to confirm click
     submitBtn.innerHTML = '<span class="spinner"></span> Adding Item...';
@@ -1295,7 +1505,23 @@ function mockBackend(action, data) {
             } else if (action === 'login' && data.type === 'email_or_username') {
                 resolve({ 
                     success: true, 
-                    clientData: { name: "Test User", username: data.identifier, email: "test@example.com", contact: "+91 98765 43210" } 
+                    clientData: { 
+                        name: "Test User", 
+                        username: data.identifier, 
+                        email: "test@example.com", 
+                        contact: "+91 98765 43210",
+                        tier: "Free",
+                        tierExpiry: "LIFETIME",
+                        lifecycleStatus: "NORMAL",
+                        maxItems: 10,
+                        maxFileSizeKB: 100
+                    } 
+                });
+            } else if (action === 'get_user_archive') {
+                resolve({
+                    success: true,
+                    zipBase64: "UEsDBAoAAAAAAOCrO1cAAAAAAAAAAAAAAAAIABwATWFuaWZlc3RVVAkAA7ZzX2a2c19ndXgLAAEE6AMAAAToAwAAUEsBAh4DCgAAAAAA4Ks7VwAAAAAAAAAAAAAAAAgAGAAAAAAAAAAAAKSBAAAAAE1hbmlmZXN0VVQFAAO2c19ndXgLAAEE6AMAAAToAwAAUEsFBgAAAAABAAEATgAAAD4AAAAAAA==",
+                    fileName: `${data.username}_wslip_invoices_archive.zip`
                 });
             } else if (action === 'get_password') {
                 resolve({ success: true, password: "MySecretPassword123" });
@@ -1350,10 +1576,10 @@ window.deleteItem = async function(itemName, serialNumber, driveUrl) {
             // Revert on failure
             currentHardware = previousHardware;
             renderItems();
-            alert("Failed to delete item: " + result.message);
+            showToast("Failed to delete item: " + (result.message || "Unknown error"), "error");
         }
     } catch (e) {
         console.error(e);
-        alert("An error occurred while deleting.");
+        showToast("An error occurred while deleting.", "error");
     }
 };
