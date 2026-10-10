@@ -81,6 +81,7 @@ let heldUsername = "";
 let currentUser = null;
 let currentClaimItem = "";
 let inactivityTimer;
+let activeSavesCount = 0;
 
 // --- Security: HTML Escape Utility ---
 function escapeHTML(str) {
@@ -107,15 +108,65 @@ function showView(viewElement) {
     }
 }
 
-// BYPASS LOGIN FOR TESTING - REMOVED
-// window.addEventListener('DOMContentLoaded', () => {
-//     transitionToDashboard({
-//         name: "Test Admin",
-//         username: "admin",
-//         email: "admin@kuzto.com",
-//         hardware: []
-//     });
-// });
+// --- Lock & Prevent Premature Interruptions During Saving ---
+function updateSavingState(isSaving) {
+    if (isSaving) {
+        activeSavesCount++;
+    } else {
+        activeSavesCount = Math.max(0, activeSavesCount - 1);
+    }
+
+    if (refreshBtn) {
+        if (activeSavesCount > 0) {
+            refreshBtn.classList.add('disabled-btn');
+            refreshBtn.disabled = true;
+            refreshBtn.setAttribute('title', 'Saving item in progress... Please wait');
+        } else {
+            refreshBtn.classList.remove('disabled-btn');
+            refreshBtn.disabled = false;
+            refreshBtn.setAttribute('title', 'Refresh Data');
+        }
+    }
+}
+
+// Warn user if refreshing/leaving while an item is actively saving to backend
+window.addEventListener('beforeunload', (e) => {
+    if (activeSavesCount > 0) {
+        e.preventDefault();
+        e.returnValue = 'An item is currently being saved to your account. Leaving or refreshing the page now may interrupt the upload.';
+        return e.returnValue;
+    }
+});
+
+// --- Session Persistence: Auto Restore on Refresh ---
+function restoreSavedSession() {
+    try {
+        const saved = localStorage.getItem('kuzto_session');
+        const savedTime = localStorage.getItem('kuzto_session_time');
+        if (saved) {
+            // Keep session valid for 14 days
+            const maxAge = 14 * 24 * 60 * 60 * 1000;
+            if (savedTime && (Date.now() - parseInt(savedTime, 10) > maxAge)) {
+                localStorage.removeItem('kuzto_session');
+                localStorage.removeItem('kuzto_session_time');
+                return;
+            }
+            const clientData = JSON.parse(saved);
+            if (clientData && (clientData.username || clientData.email)) {
+                transitionToDashboard(clientData);
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to restore session from localStorage:", e);
+    }
+}
+
+// Automatically check session as soon as script runs
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', restoreSavedSession);
+} else {
+    restoreSavedSession();
+}
 
 // --- API Communication ---
 async function fetchBackend(action, dataPayload) {
@@ -362,6 +413,12 @@ const refreshBtn = document.getElementById('refresh-btn');
 
 function transitionToDashboard(clientData) {
     currentUser = clientData || {};
+    try {
+        localStorage.setItem('kuzto_session', JSON.stringify(currentUser));
+        localStorage.setItem('kuzto_session_time', Date.now().toString());
+    } catch (e) {
+        console.warn("Could not save session to localStorage:", e);
+    }
     
     showView(dashboardView);
     if (clientNameEl) clientNameEl.textContent = currentUser.name || "Client";
@@ -423,19 +480,32 @@ async function fetchItems() {
     // Spin the refresh button if clicked
     if (refreshBtn) refreshBtn.classList.add('spinning');
 
-    // Call the new backend action you will implement
+    // Call backend to fetch hardware items
     const result = await fetchBackend('get_items', { identifier: currentUser.username || currentUser.email });
 
     if (refreshBtn) refreshBtn.classList.remove('spinning');
 
     if (result.success) {
-        // Pre-parse timestamps for high-performance sorting
-        currentHardware = (result.hardware || []).map(item => ({
+        // Retain any items currently in middle of saving/syncing so they are never lost on refresh
+        const syncingItems = currentHardware.filter(item => item._syncing);
+        const serverItems = (result.hardware || []).map(item => ({
             ...item,
             _parsedPurchase: new Date(item.purchaseDate).getTime(),
             _parsedWarrantyEnd: new Date(item.warrantyEndDate).getTime()
         }));
-        
+
+        const merged = [...serverItems];
+        syncingItems.forEach(syncItem => {
+            const alreadyInServer = serverItems.some(si => 
+                si.itemName === syncItem.itemName && 
+                si.serialNumber === syncItem.serialNumber
+            );
+            if (!alreadyInServer) {
+                merged.unshift(syncItem);
+            }
+        });
+
+        currentHardware = merged;
         renderItems();
     } else {
         dashboardContent.innerHTML = `
@@ -449,7 +519,10 @@ async function fetchItems() {
 }
 
 if (refreshBtn) {
-    refreshBtn.addEventListener('click', fetchItems);
+    refreshBtn.addEventListener('click', () => {
+        if (activeSavesCount > 0) return; // Prevent clicking refresh while an item is actively saving
+        fetchItems();
+    });
 }
 
 function renderItems() {
@@ -649,13 +722,14 @@ function setupEditToggle(inputEl, btnEl, fieldName) {
                 if (fieldName === 'Contact') {
                     if (currentUser) currentUser.contact = newValue;
                 }
+                try {
+                    localStorage.setItem('kuzto_session', JSON.stringify(currentUser));
+                } catch(e) {}
                 
                 // Always clear password input after change
                 if (fieldName === 'Password') {
                     inputEl.value = '********';
                 }
-                
-                // Optional: show a small toast or inline success here
                 
             } else {
                 // Revert on failure
@@ -677,6 +751,11 @@ setupEditToggle(profilePassword, editPasswordBtn, 'Password');
 
 // Logout
 logoutBtn.addEventListener('click', () => {
+    try {
+        localStorage.removeItem('kuzto_session');
+        localStorage.removeItem('kuzto_session_time');
+    } catch (e) {}
+
     showView(loginView);
     emailForm.reset();
     loginError.textContent = "";
@@ -1114,6 +1193,8 @@ addItemForm.addEventListener('submit', async (e) => {
         mimeType: mimeType
     };
 
+    updateSavingState(true);
+
     try {
         const result = await fetchBackend('add_hardware', payload);
 
@@ -1135,6 +1216,8 @@ addItemForm.addEventListener('submit', async (e) => {
         if (idx > -1) currentHardware.splice(idx, 1);
         renderItems();
         alert("Network error while saving. The item was not saved. Please try again.");
+    } finally {
+        updateSavingState(false);
     }
 });
 

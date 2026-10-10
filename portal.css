@@ -1463,3 +1463,37 @@ header {
     font-size: 0.88rem;
     color: var(--text-secondary);
 }
+
+/* Syncing State & Lock Styles */
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    padding: 0.15rem 0.55rem;
+    background-color: rgba(217, 131, 36, 0.12);
+    color: #c97316;
+    border: 1px solid rgba(217, 131, 36, 0.35);
+    border-radius: 12px;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
+    animation: pulseSync 1.4s infinite ease-in-out;
+}
+
+@keyframes pulseSync {
+    0%, 100% { opacity: 0.65; transform: scale(0.98); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
+.item-card.item-syncing {
+    border-left: 3px solid #d98324 !important;
+    background: linear-gradient(90deg, rgba(217, 131, 36, 0.04) 0%, #ffffff 15%);
+}
+
+.icon-btn.disabled-btn,
+.icon-btn[disabled] {
+    opacity: 0.35 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
