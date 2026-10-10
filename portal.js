@@ -704,6 +704,17 @@ async function fetchItems() {
     if (refreshBtn) refreshBtn.classList.remove('spinning');
 
     if (result.success) {
+        // Automatically sync fresh user profile and tier from backend
+        if (result.clientData) {
+            currentUser = { ...currentUser, ...result.clientData };
+            try {
+                localStorage.setItem('kuzto_session', JSON.stringify(currentUser));
+                localStorage.setItem('kuzto_session_time', Date.now().toString());
+            } catch (e) {}
+            if (clientNameEl) clientNameEl.textContent = currentUser.name || "Client";
+            updateTierAndCapacityUI();
+        }
+
         // Retain any items currently in middle of saving/syncing so they are never lost on refresh
         const syncingItems = currentHardware.filter(item => item._syncing);
         const serverItems = (result.hardware || []).map(item => ({
@@ -1516,6 +1527,21 @@ function mockBackend(action, data) {
                         maxItems: 10,
                         maxFileSizeKB: 100
                     } 
+                });
+            } else if (action === 'get_items') {
+                resolve({ 
+                    success: true, 
+                    hardware: [],
+                    clientData: {
+                        name: "Test User",
+                        username: data.identifier,
+                        email: "test@example.com",
+                        tier: "Ultimate",
+                        tierExpiry: "LIFETIME",
+                        lifecycleStatus: "NORMAL",
+                        maxItems: 999999,
+                        maxFileSizeKB: 300
+                    }
                 });
             } else if (action === 'get_user_archive') {
                 resolve({
