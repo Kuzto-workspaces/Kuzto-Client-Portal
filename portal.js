@@ -91,6 +91,37 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
+// --- Modern Toast Notification System ---
+function showToast(message, type = 'info', duration = 3500) {
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+
+    let iconSvg = '';
+    if (type === 'success') {
+        iconSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
+    } else if (type === 'error') {
+        iconSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+    } else {
+        iconSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    }
+
+    toast.innerHTML = `<span class="toast-icon">${iconSvg}</span><span class="toast-text">${escapeHTML(message)}</span>`;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('toast-fadeout');
+        setTimeout(() => toast.remove(), 280);
+    }, duration);
+}
+
 // --- Utility Functions ---
 function showView(viewElement) {
     [loginView, profileSetupView, dashboardView].forEach(v => {
@@ -308,13 +339,18 @@ checkUsernameBtn.addEventListener('click', async () => {
         return;
     }
 
+    checkUsernameBtn.disabled = true;
+    checkUsernameBtn.innerHTML = '<span class="spinner"></span> Checking...';
     usernameStatus.textContent = "Checking...";
     usernameStatus.className = 'status-msg';
 
     const result = await fetchBackend('check_username', { username: username });
     
+    checkUsernameBtn.disabled = false;
+    checkUsernameBtn.textContent = 'Check';
+
     if (result.success && result.available) {
-        usernameStatus.textContent = "Available! Username held.";
+        usernameStatus.textContent = "Available!";
         usernameStatus.className = 'status-msg success';
         isUsernameAvailable = true;
         heldUsername = username;
@@ -357,7 +393,7 @@ profileSetupForm.addEventListener('submit', async (e) => {
     }
 
     setupSubmitBtn.disabled = true;
-    setupSubmitBtn.textContent = "Creating...";
+    setupSubmitBtn.innerHTML = '<span class="spinner"></span> Creating Account...';
 
     const result = await fetchBackend('register_user', {
         email: setupEmail.value,
@@ -375,6 +411,7 @@ profileSetupForm.addEventListener('submit', async (e) => {
         });
         
         if (loginResult.success) {
+            showToast("Welcome! Profile created successfully.", "success");
             transitionToDashboard(loginResult.clientData);
             resetSetupForm();
         } else {
@@ -599,13 +636,13 @@ function renderItems() {
         }
 
         const newCard = document.createElement('div');
-        newCard.className = 'card item-card' + (item._syncing ? ' item-syncing' : '');
+        newCard.className = 'card item-card' + (item._syncing ? ' item-syncing' : '') + (item._justSaved ? ' item-saved' : '');
         const safeName = escapeHTML(item.itemName);
         const safeSpecs = escapeHTML(item.specs);
         const safeSN = escapeHTML(item.serialNumber);
         const safeDriveUrl = escapeHTML(item.driveUrl);
 
-        const syncBadge = item._syncing ? `<span class="sync-badge">Saving…</span>` : '';
+        const syncBadge = item._syncing ? `<span class="sync-badge"><span class="badge-mini-spinner"></span> Saving…</span>` : '';
 
         newCard.innerHTML = `
             <div class="item-card-left">
@@ -697,7 +734,7 @@ function setupEditToggle(inputEl, btnEl, fieldName) {
             // Optimistic UI updates
             inputEl.setAttribute('readonly', 'true');
             inputEl.setAttribute('disabled', 'true');
-            btnEl.textContent = 'Saving...';
+            btnEl.innerHTML = '<span class="spinner"></span> Saving...';
             btnEl.disabled = true;
             
             // Backend call
@@ -726,6 +763,8 @@ function setupEditToggle(inputEl, btnEl, fieldName) {
                     localStorage.setItem('kuzto_session', JSON.stringify(currentUser));
                 } catch(e) {}
                 
+                showToast(`${fieldName} updated successfully`, 'success');
+                
                 // Always clear password input after change
                 if (fieldName === 'Password') {
                     inputEl.value = '********';
@@ -733,7 +772,7 @@ function setupEditToggle(inputEl, btnEl, fieldName) {
                 
             } else {
                 // Revert on failure
-                alert(result.message || `Failed to update ${fieldName}`);
+                showToast(result.message || `Failed to update ${fieldName}`, 'error');
                 inputEl.removeAttribute('readonly');
                 inputEl.removeAttribute('disabled');
                 btnEl.textContent = 'Save';
@@ -978,18 +1017,21 @@ copyTemplateBtn.addEventListener('click', () => {
         navigator.clipboard.writeText(claimTemplateOutput.value).then(() => {
             copyStatus.textContent = "Template copied to clipboard!";
             copyStatus.className = "status-msg success";
+            showToast("Warranty claim template copied to clipboard!", "success");
         }).catch(err => {
             console.error("Async clipboard copy failed:", err);
             // Fallback
             document.execCommand('copy');
             copyStatus.textContent = "Template copied to clipboard!";
             copyStatus.className = "status-msg success";
+            showToast("Warranty claim template copied to clipboard!", "success");
         });
     } catch (err) {
         console.error("Clipboard API failed:", err);
         document.execCommand('copy');
         copyStatus.textContent = "Template copied to clipboard!";
         copyStatus.className = "status-msg success";
+        showToast("Warranty claim template copied to clipboard!", "success");
     }
 });
 
@@ -1012,7 +1054,7 @@ if (closeForgotModalBtn) {
 forgotPasswordForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('submit-forgot-btn');
-    btn.textContent = 'Sending...';
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
     btn.disabled = true;
     forgotStatus.textContent = '';
     
@@ -1022,10 +1064,11 @@ forgotPasswordForm.addEventListener('submit', async (e) => {
     btn.disabled = false;
     
     if (result.success) {
-        alert("If the username exists, a temporary password has been emailed to the address on file.");
+        showToast("Temporary password has been emailed to the address on file.", "success");
         forgotPasswordModal.classList.remove('active');
     } else {
         forgotStatus.textContent = result.message || "Failed to process request.";
+        showToast(result.message || "Failed to process request", "error");
     }
 });
 
@@ -1136,7 +1179,7 @@ addItemForm.addEventListener('submit', async (e) => {
     const file = fileInput2.files[0];
 
     // Quick button flash to confirm click
-    submitBtn.textContent = "Adding...";
+    submitBtn.innerHTML = '<span class="spinner"></span> Adding Item...';
     submitBtn.disabled = true;
 
     try {
@@ -1154,7 +1197,7 @@ addItemForm.addEventListener('submit', async (e) => {
         console.error("File read error:", readErr);
         submitBtn.textContent = "Add Item";
         submitBtn.disabled = false;
-        alert("Could not read the selected file. Please try again.");
+        showToast("Could not read the selected file. Please try again.", "error");
         return;
     }
 
@@ -1202,20 +1245,26 @@ addItemForm.addEventListener('submit', async (e) => {
             // Backend confirmed — update the optimistic item with real data
             optimisticItem.driveUrl = result.driveUrl || '';
             optimisticItem._syncing = false;
-            renderItems(); // Re-render to remove syncing indicator
+            optimisticItem._justSaved = true;
+            renderItems(); // Re-render to remove syncing indicator and show green pulse
+            showToast("Item saved to your workspace!", "success");
+            setTimeout(() => {
+                optimisticItem._justSaved = false;
+                renderItems();
+            }, 1400);
         } else {
             // Backend rejected — rollback the optimistic item
             const idx = currentHardware.indexOf(optimisticItem);
             if (idx > -1) currentHardware.splice(idx, 1);
             renderItems();
-            alert("Failed to save item: " + (result.message || "Unknown error. Please try again."));
+            showToast("Failed to save item: " + (result.message || "Unknown error"), "error");
         }
     } catch (netErr) {
         // Network failure — rollback
         const idx = currentHardware.indexOf(optimisticItem);
         if (idx > -1) currentHardware.splice(idx, 1);
         renderItems();
-        alert("Network error while saving. The item was not saved. Please try again.");
+        showToast("Network error while saving. Please try again.", "error");
     } finally {
         updateSavingState(false);
     }

@@ -64,12 +64,23 @@ header {
 .view {
     display: none;
     opacity: 0;
-    transition: opacity 0.4s ease;
 }
 
 .view.active {
     display: block;
     opacity: 1;
+    animation: viewFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes viewFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Forms & Cards */
@@ -525,6 +536,12 @@ header {
 
 .modal.active {
     display: flex;
+    animation: modalBackdropFadeIn 0.25s ease forwards;
+}
+
+@keyframes modalBackdropFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .modal-content {
@@ -537,6 +554,18 @@ header {
     display: flex;
     flex-direction: column;
     max-height: 90vh;
+    animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalPop {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .modal-content h2 {
@@ -1332,42 +1361,29 @@ header {
 .skeleton-line::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
-    animation: shimmer 1.5s infinite;
-    transform: translateX(-100%);
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.75) 50%, transparent 100%);
+    animation: shimmer 1.6s infinite ease-in-out;
 }
 
 @keyframes shimmer {
-    100% {
-        transform: translateX(100%);
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.item-card {
+    animation: cardEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cardEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
     }
-}
-
-/* Optimistic UI Syncing State */
-.item-syncing {
-    opacity: 0.7;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.sync-badge {
-    font-size: 0.7rem;
-    background: rgba(156, 175, 136, 0.2);
-    color: var(--accent-color);
-    padding: 0.15rem 0.5rem;
-    border-radius: 10px;
-    margin-left: 0.5rem;
-    vertical-align: middle;
-    animation: pulse 1.5s infinite alternate;
-}
-
-@keyframes pulse {
-    from { opacity: 0.6; }
-    to { opacity: 1; }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* --- Spinner & Loading States --- */
@@ -1496,4 +1512,148 @@ header {
     opacity: 0.35 !important;
     cursor: not-allowed !important;
     pointer-events: none !important;
+}
+
+/* --- Inline Button Spinner --- */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    border-top-color: #ffffff;
+    animation: btnSpinnerRotate 0.65s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.btn.secondary .spinner,
+button.secondary .spinner {
+    border-color: rgba(0, 0, 0, 0.15);
+    border-top-color: var(--accent-color);
+}
+
+@keyframes btnSpinnerRotate {
+    to { transform: rotate(360deg); }
+}
+
+/* Badge Mini Spinner inside Saving Badge */
+.badge-mini-spinner {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border: 2px solid rgba(201, 115, 22, 0.25);
+    border-radius: 50%;
+    border-top-color: #c97316;
+    animation: btnSpinnerRotate 0.65s linear infinite;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* Post-Save Success Flash */
+.item-card.item-saved {
+    animation: saveSuccessFlash 1.4s ease forwards;
+}
+
+@keyframes saveSuccessFlash {
+    0% {
+        border-left: 3px solid #5cb85c !important;
+        background-color: rgba(92, 184, 92, 0.08);
+    }
+    100% {
+        border-left: 1px solid var(--border-color);
+        background-color: var(--card-bg);
+    }
+}
+
+/* Interactive Micro-animations for buttons */
+button:active,
+.btn:active {
+    transform: scale(0.98);
+    transition: transform 0.08s ease;
+}
+
+/* --- Toast Notification System --- */
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    pointer-events: none;
+    max-width: 90vw;
+}
+
+@media (max-width: 768px) {
+    .toast-container {
+        bottom: auto;
+        top: 1.5rem;
+        right: 50%;
+        transform: translateX(50%);
+        width: 90vw;
+        align-items: center;
+    }
+}
+
+.toast {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1.25rem;
+    background: #ffffff;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    font-size: 0.9rem;
+    font-weight: 500;
+    animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.toast-success {
+    border-left: 4px solid #5cb85c;
+}
+.toast-success .toast-icon {
+    color: #5cb85c;
+}
+
+.toast-error {
+    border-left: 4px solid #d9534f;
+}
+.toast-error .toast-icon {
+    color: #d9534f;
+}
+
+.toast-info {
+    border-left: 4px solid var(--accent-color);
+}
+.toast-info .toast-icon {
+    color: var(--accent-color);
+}
+
+.toast-fadeout {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
