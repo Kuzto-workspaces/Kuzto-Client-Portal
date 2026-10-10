@@ -140,9 +140,25 @@ async function fetchBackend(action, dataPayload) {
 
 // 1. Google OAuth Callback
 async function handleGoogleLogin(response) {
+    const overlay = document.getElementById('google-auth-overlay');
+
+    // Show the loading overlay immediately
+    overlay.style.display = 'flex';
+    overlay.classList.remove('hiding');
+    loginError.textContent = ''; // clear previous errors
+
     const token = response.credential;
     const result = await fetchBackend('login', { type: 'google', token: token });
-    
+
+    // Hide the overlay with a smooth fade-out
+    const hideOverlay = () => {
+        overlay.classList.add('hiding');
+        overlay.addEventListener('animationend', () => {
+            overlay.style.display = 'none';
+            overlay.classList.remove('hiding');
+        }, { once: true });
+    };
+
     if (result.success) {
         if (result.requiresProfileSetup) {
             // First time user via Google
@@ -151,12 +167,15 @@ async function handleGoogleLogin(response) {
             if (result.name) {
                 setupName.value = result.name;
             }
+            hideOverlay();
             showView(profileSetupView);
         } else {
             // Returning user
+            hideOverlay();
             transitionToDashboard(result.clientData);
         }
     } else {
+        hideOverlay();
         loginError.textContent = result.message || "Google Authentication failed.";
     }
 }

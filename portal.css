@@ -1369,3 +1369,97 @@ header {
     from { opacity: 0.6; }
     to { opacity: 1; }
 }
+
+/* --- Spinner & Loading States --- */
+
+/* Inline spinner for buttons (used by manual login) */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btnSpin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+@keyframes btnSpin {
+    to { transform: rotate(360deg); }
+}
+
+.btn.loading {
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+.btn.success-state {
+    background-color: var(--success-color) !important;
+    pointer-events: none;
+}
+
+/* --- Google Auth Full-Screen Loading Overlay --- */
+.google-auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(250, 249, 246, 0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    animation: overlayFadeIn 0.35s ease forwards;
+}
+
+.google-auth-overlay.hiding {
+    animation: overlayFadeOut 0.3s ease forwards;
+}
+
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes overlayFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.google-auth-overlay-content {
+    text-align: center;
+    animation: overlayContentSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes overlayContentSlideUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.google-auth-spinner {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1.5rem;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: googleSpin 0.8s linear infinite;
+}
+
+@keyframes googleSpin {
+    to { transform: rotate(360deg); }
+}
+
+.google-auth-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+}
+
+.google-auth-subtext {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
